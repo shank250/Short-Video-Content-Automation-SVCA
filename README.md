@@ -1,0 +1,4 @@
+# SVCA
+Dependencies
+pandas 
+pytrends

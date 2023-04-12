@@ -15,16 +15,12 @@ trending_today = pytrend.today_searches(pn = 'IN')
 df_trending_today = pd.DataFrame(trending_today)
 
 links =[]
-i = 0
-for path in trending_today:
-    details = []
+for i, path in enumerate(trending_today):
     url = "https://trends.google.com" + path
     title_uf = url[43:]
     title_uf_2 = title_uf.split("&")
-    details.append(title_uf_2[0])
-    details.append("https://trends.google.com" + path)
+    details = [title_uf_2[0], "https://trends.google.com" + path]
     data[i] = details
-    i += 1
 print("Sucessfully got the trends. [",len(data),"]")
 # got the  trending for the day sucessfully
 

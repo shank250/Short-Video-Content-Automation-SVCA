@@ -1,4 +1,3 @@
-# testing file
 import pprint
 import json
 
@@ -16,7 +15,7 @@ for text in articles:
     article_text = articles[text]
     character_count = len(article_text)
     print(character_count)
-    if character_count > 500 :
+    if character_count > 500 and character_count < 4000 :
         filtered_articles.append(article_text)
         print("added")
         count += 1

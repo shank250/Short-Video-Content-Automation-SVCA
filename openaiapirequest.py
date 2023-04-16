@@ -2,7 +2,7 @@ import openai
 import json
 openai.api_key = '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'
 
-details = "Using the given article try to  create a script for a youtube, 1 min shorts video around 100 words. also try to give the feeling with the kind of news it is  Also give a clicky title to the clip. Give the instructions of video clips and background images in [] brakets. These video clips do not requires to be specific give a general description of images and videos whaih can be use in the whaole clip any where.\n"
+details = "Using the given article create a script for a youtube, 1 min shorts video within 100 words. \n The response should only be in python dictionary format  with title, feelings, image_instruction and script as keys and their values.\n the key feelings should only have one of these values Happiness, Sadness, Anger, Fear, Love, Excitement, Anxiety, Frustration or None."
 
 print("now loading the articles from the filtered articles...")
 with open("filtered_articles.json", "r") as f:
@@ -20,17 +20,16 @@ for article in articles:
     messages=[
             {"role": "system", "content": "You are a journalist and content creator"},
             {"role": "assistant", "content": details },
-            {"role": "user", "content": details + article_body},
-
+            {"role": "user", "content": article_body},
         ]
-
     )
 
     respoense = response["choices"][0]["message"]["content"]
     print("request send sucessfully")
     print(respoense)
-    response_list.append(respoense)
+
+response_json = eval(respoense)
 
 with open("sample_subtitle.json", "w") as f:
-    json.dump(response_list, f)
+    json.dump(response_json, f)
 print("Succesfully dumped the  data. :)")

@@ -22,7 +22,9 @@ import shutil
 import threading
 import time
 import sys
-
+import cv2
+import numpy as np
+import webcolors
 
 change_settings({"IMAGEMAGICK_BINARY": "C:/Program Files/ImageMagick-7.1.1-Q16/magick.exe"})
 openai.api_key = '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'
@@ -152,7 +154,7 @@ def article_filtration():
     print("Succesfully dumped  all the  articles. \n:)")
 
 def script_creation():
-    details = "Using the given article create a script for a youtube, 1 min shorts video within 100 words. \n The response should only be in python dictionary format  with title, feelings, image_instruction and script as keys and their values.\n the key feelings should only have one of these values Happiness, Sadness, Anger, Fear, Love, Excitement, Anxiety, Frustration or None."
+    details = "Using the given article create a script for a youtube, 1 min shorts video within 100 words. \n The response should only be in python dictionary format  with title, feelings, image_instruction and script as keys and their values.\n the key feelings should only have one of these values     ness, Sadness, Anger, Fear, Love, Excitement, Anxiety, Frustration or None."
     print("now loading the articles from the filtered articles...")
     with open("filtered_articles.json", "r") as f:
         articles = json.load(f)
@@ -193,6 +195,17 @@ def images_extraction():
                         adult_filter_off=True, 
                         force_replace=False, 
                         timeout=60, verbose=True)
+
+def get_closest_color(rgb):
+    # convert the RGB values to the nearest web color
+    closest_color = webcolors.rgb_to_name(rgb)
+    
+    # keep looking for lighter colors until we find one
+    while closest_color.lower() == "black" or closest_color.lower() == "white":
+        rgb = tuple(c + 25 for c in rgb)
+        closest_color = webcolors.rgb_to_name(rgb)
+    
+    return closest_color
 
 def video_generation():
 # import conf.py
@@ -258,7 +271,8 @@ def video_generation():
     pixels_left_on_sides_padding = 20
 
     for i in range(1,7):
-        globals()[f"clip{i}"] = ImageClip(image_files[i-1], duration = clip_duration)
+        current_image_file_path = image_files[i-1]
+        globals()[f"clip{i}"] = ImageClip(current_image_file_path, duration = clip_duration)
         clip = globals()[f"clip{i}"]
         height = clip.size[1]
         width = clip.size[0]
@@ -272,6 +286,37 @@ def video_generation():
         else:
             clip = clip.resize((width, height))
         
+        # ========================textclip color selection=================================
+        try:
+
+            img = cv2.imread(current_image_file_path)
+
+            # Convert to HSV color space
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+            # Compute color histogram
+            hist = cv2.calcHist([hsv], [0, 1], None, [180, 256], [0, 180, 0, 256])
+
+            # Find dominant color(s)
+            max_idx = np.argmax(hist)
+            hue, sat = np.unravel_index(max_idx, hist.shape)
+
+            # Choose complementary color
+            complement_hue = (hue + 90) % 180
+            complement_sat = 255 - sat
+            complement_val = 255
+
+            # Convert complementary color back to RGB
+            complement_hsv = np.array([[complement_hue, complement_sat, complement_val]], dtype=np.uint8)
+            complement_hsv = complement_hsv.reshape((1, 1, 3)) # Add a third dimension to the array
+            complement_rgb = cv2.cvtColor(complement_hsv, cv2.COLOR_HSV2BGR)[0][0]
+
+            complement_color = tuple(complement_rgb)
+            text_color_name = get_closest_color(complement_color)
+        except:
+            text_color_name = "grey"
+
+# =============================================================================================
         for j in range(2):
             if j == 0:
                 # cuti0
@@ -300,7 +345,11 @@ def video_generation():
                         subtitle_text_list.append("\n")
                     even += 1
             text = " ".join(subtitle_text_list)
-            text_clip = TextClip(text, fontsize=30, color='darkgrey' ,font = 'Arial-Bold', )
+            try:
+                text_clip = TextClip(text, fontsize=25, color=text_color_name ,font = 'Arial-Bold', )
+            except:
+                text_clip = TextClip(text, fontsize=25, color="grey" ,font = 'Arial-Bold', )
+
             text_clip = text_clip.set_position("center","center").set_duration(clip_duration/2)
             globals()[f"cut_final{i}{j}"] = CompositeVideoClip([main_cut, text_clip]) 
             cuts_counter += 1
@@ -360,6 +409,14 @@ def cleaning():
         if filename_jpg.endswith('.jpg'):
             os.remove(os.path.join(image_folder, filename_jpg))
 
+def do2():
+    article_ext_source()
+    article_filtration()
+    script_creation()
+    images_extraction()
+    video_generation()
+    do2()
+
 def do():
     trends_extraction()
     article_ext_source()
@@ -367,38 +424,38 @@ def do():
     script_creation()
     images_extraction()
     video_generation()
-    do()
+    do2()
     # copying_imaportant_files()
     # cleaning()
 
-# def run():
-#     def processing(stop_event):
-#         while not stop_event.is_set():
-#             for c in "\ /":
-#                 sys.stdout.write('\r' + "Processing " + c)
-#                 sys.stdout.flush()
-#                 time.sleep(0.1)
+def run():
+    def processing(stop_event):
+        while not stop_event.is_set():
+            for c in "\ /":
+                sys.stdout.write('\r' + "Processing " + c)
+                sys.stdout.flush()
+                time.sleep(0.1)
 
-#     def do_calculation():
-#         # here is the program structure
-#         print("Started")
-#         try:
-#             do()
-#         except:
-#             print("!!!!!!!!!!!!!!!!!!Something went wrong!!!!!!!!!!!!!!!!!!!!!!!!!")
-#             # cleaning()
-#             # do()
-#             Exception_counter += 1
-#             if Exception_counter > 5 :
-#                 exit()
+    def do_calculation():
+        # here is the program structure
+        print("Started")
+        try:
+            do()
+        except:
+            print("!!!!!!!!!!!!!!!!!!Something went wrong!!!!!!!!!!!!!!!!!!!!!!!!!")
+            cleaning()
+            # do()
+            Exception_counter += 1
+            if Exception_counter > 5 :
+                exit()
 
 
-#     stop_event = threading.Event()
-#     processing_thread = threading.Thread(target=processing, args=(stop_event,))
-#     processing_thread.start()
+    stop_event = threading.Event()
+    processing_thread = threading.Thread(target=processing, args=(stop_event,))
+    processing_thread.start()
 
-#     do_calculation()
-#     stop_event.set()
-#     print("\nDone!")
+    do_calculation()
+    stop_event.set()
+    print("\nDone!")
 
 do()

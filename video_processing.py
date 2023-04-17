@@ -4,6 +4,8 @@ from moviepy.editor import *
 from moviepy.config import change_settings
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from moviepy.video.tools.subtitles import SubtitlesClip
+import cv2
+import numpy as np
 # import conf.py
 change_settings({"IMAGEMAGICK_BINARY": "C:/Program Files/ImageMagick-7.1.1-Q16/magick.exe"})
 
@@ -71,20 +73,23 @@ pixels_left_on_sides_padding = 20
 # width = int(height * 9 / 16)
 
 for i in range(1,7):
+    img = image_files[i-1]
     globals()[f"clip{i}"] = ImageClip(image_files[i-1], duration = clip_duration)
     clip = globals()[f"clip{i}"]
     height = clip.size[1]
     width = clip.size[0]
-    clip = clip.set_position(lambda t:( t * (width-new_width-pixels_left_on_sides_padding)/clip_duration, 'center') )
-    clip = CompositeVideoClip([clip], size=clip.size)
     if width > height: 
         new_height = height
         new_width = int(new_height * 9 / 16)
         print(new_width, width, clip.size[0],clip.size[1],new_height,height )
         clip = clip.crop(x1 = width - new_width - (pixels_left_on_sides_padding/2), x2 = width).resize((new_width, height))
     else:
+        new_width = width
+        new_height = height 
         clip = clip.resize((width, height))
     
+    clip = clip.set_position(lambda t:( t * (width-new_width-pixels_left_on_sides_padding)/clip_duration, 'center') )
+    clip = CompositeVideoClip([clip], size=clip.size)
     for j in range(2):
         if j == 0:
             # cuti0
@@ -119,7 +124,25 @@ for i in range(1,7):
         # print(subtitle_text_list)
         # subtitle_text_list = suttitle_line_1_list + suttitle_line_2_list
         text = " ".join(subtitle_text_list)
-        text_clip = TextClip(text, fontsize=30, color='darkgrey' ,font = 'Arial-Bold', )
+        # selecting the color
+        # Load image
+        img = cv2.imread(img)
+        # Convert to HSV color space
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        # Compute color histogram
+        hist = cv2.calcHist([hsv], [0, 1], None, [180, 256], [0, 180, 0, 256])
+        # Find dominant color(s)
+        max_idx = np.argmax(hist)
+        hue, sat = np.unravel_index(max_idx, hist.shape)
+        # Choose complementary color
+        complement_hue = (hue + 90) % 180
+        complement_sat = 255 - sat
+        complement_val = 255
+        # Convert complementary color back to RGB
+        complement_hsv = np.array([[complement_hue, complement_sat, complement_val]], dtype=np.uint8)
+        complement_rgb = cv2.cvtColor(complement_hsv, cv2.COLOR_HSV2BGR)[0][0]
+
+        text_clip = TextClip(text, fontsize=25, color=complement_rgb ,font = 'Arial-Bold', )
         text_clip = text_clip.set_position("center","center").set_duration(clip_duration/2)
         # print(TextClip.list('font'))
 #         subtitle = [((0,2.5)," ".join(suttitle_line_1_list)),

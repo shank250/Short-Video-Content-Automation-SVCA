@@ -1,6 +1,7 @@
 image
 image_downloads
 script
+api keys and other files
 *.mp4
 .log
 *.mp3

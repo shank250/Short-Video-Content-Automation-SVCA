@@ -30,8 +30,40 @@ change_settings({"IMAGEMAGICK_BINARY": "C:/Program Files/ImageMagick-7.1.1-Q16/m
 openai.api_key = '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'
 discarded_trends = []
 Exception_counter = 0
+final_key = "0"
 
+def selecting_topic():
+    # project log will keep track of the completed projects
+    current_dir = os.getcwd()
+    project_log_location = current_dir + r'\other_files\project_log.json'
+    with open(project_log_location, 'r') as f:
+        log = json.load(f)
+    old_project_topic_list = []
+    for topics in log:
+        topic_name = topics['0']
+        old_project_topic_list.append(topic_name)
+    for i in range(len(data)):
+        topic_Trends = data[f'{i}']
+        if topic_Trends not in old_project_topic_list:
+            final_key = f'{i}'
+
+def add_to_completed_project():
+    # structure of project_log
+    # keys : "0"
+    # values: "trends title"
+    current_dir = os.getcwd()
+    project_log_location = current_dir + r'\other_files\project_log.json'
+    with open("data.json", "r") as f:
+        data = json.load(f)
+    project_dict = {
+        "0" : data[final_key]
+    }
+    with open(project_log_location, 'a') as f:
+        json.dump(project_dict, f)
+    print("Sucessfully added the project to log file.")
+    
 def trends_extraction():
+    global data ;
     data = {}
     # keyword index
     # value details
@@ -40,7 +72,10 @@ def trends_extraction():
     #           2 - list of articles
 
     pytrend = TrendReq()
+
     trending_today = pytrend.today_searches(pn = 'IN')
+    # realtime_trending_searches
+
     df_trending_today = pd.DataFrame(trending_today)
 
     links =[]
@@ -72,25 +107,26 @@ def article_ext_source():
     print("opening the firefox application")
     # now loading the data from the trends 
     print("now loading the data from the trends...")
-    import json
-    with open("data.json", "r") as f:
-        data = json.load(f)
-    print("data loaded")
+    # with open("data.json", "r") as f:
+    #     data = json.load(f)
+    # print("data loaded")
     # keyword : index
     # value : details list
     # details   0 - title
     #           1 - link 
     #           2 - list of articles link
-    articles = {}
-    counter = 0
-    for key in data:
-        if data[key][0] in discarded_trends : 
-            pass
-        else:
-            final_key = key
-            break
-    discarded_trends.append(data[final_key][0])
+    # articles = {}
+    # counter = 0
+    # for key in data:
+    #     if data[key][0] in discarded_trends : 
+    #         pass
+    #     else:
+    #         final_key = key
+    #         break
+    # discarded_trends.append(data[final_key][0])
     
+    selecting_topic()
+
     for link in data[final_key][2:]:
         url = 'about:reader?url=' + link
         webbrowser.register('firefox',
@@ -154,30 +190,41 @@ def article_filtration():
     print("Succesfully dumped  all the  articles. \n:)")
 
 def script_creation():
-    details = "Using the given article create a script for a youtube, 1 min shorts video within 100 words. \n The response should only be in python dictionary format  with title, feelings, image_instruction and script as keys and their values.\n the key feelings should only have one of these values     ness, Sadness, Anger, Fear, Love, Excitement, Anxiety, Frustration or None."
+    details = "Using the given article create a script for a youtube 1 min shorts video within 100 words. \n The response should only be in python dictionary format  with title, feelings, image_instruction and script as keys and their values.\n the key feelings should only have one of these values     ness, Sadness, Anger, Fear, Love, Excitement, Anxiety, Frustration or None."
     print("now loading the articles from the filtered articles...")
     with open("filtered_articles.json", "r") as f:
         articles = json.load(f)
     print("data loaded")
     response_list = []
-    for article in articles: 
-        article_content = articles[article]
-        splitted_article = article_content.split("minute", 1)
-        article_body = splitted_article[1]
-        response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-                {"role": "system", "content": "You are a journalist and content creator"},
-                {"role": "assistant", "content": details },
-                {"role": "user", "content": article_body},
-            ]
-        )
+    try:
+            
+        for article in articles: 
+            article_content = articles[article]
+            splitted_article = article_content.split("minute", 1)
+            article_body = splitted_article[1]
+            response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                    {"role": "system", "content": "You are a journalist and content creator"},
+                    {"role": "assistant", "content": details },
+                    {"role": "user", "content": article_body},
+                ]
+            )
 
-        respoense = response["choices"][0]["message"]["content"]
-        print("request send sucessfully")
-        print(respoense)
-    response_json = eval(respoense)
-
+            respoense = response["choices"][0]["message"]["content"]
+            print("request send sucessfully")
+            print(respoense)
+            if "title" and "feelings" and "image_instruction" and "script" in respoense :
+                break
+            else :
+                print("-------------------------didn't got quality content---------------------------")
+                print("-------------------------------retrying---------------------------------------")
+                script_creation()
+        response_json = eval(respoense)
+    except:
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!error in open ai request!!!!!!!!!!!!!!!!!!!!!!!!")
+        print("-------------------------retrying------------------------------------")
+        script_creation()
     with open("sample_subtitle.json", "w") as f:
         json.dump(response_json, f)
     print("Succesfully dumped the  data. :)")
@@ -196,21 +243,10 @@ def images_extraction():
                         force_replace=False, 
                         timeout=60, verbose=True)
 
-def get_closest_color(rgb):
-    # convert the RGB values to the nearest web color
-    closest_color = webcolors.rgb_to_name(rgb)
-    
-    # keep looking for lighter colors until we find one
-    while closest_color.lower() == "black" or closest_color.lower() == "white":
-        rgb = tuple(c + 25 for c in rgb)
-        closest_color = webcolors.rgb_to_name(rgb)
-    
-    return closest_color
-
 def video_generation():
-# import conf.py
+# -----------------subtitle----------------------
     global file_name
-    
+
     with open("sample_subtitle.json", "r") as f:
         response = json.load(f)
 
@@ -269,7 +305,7 @@ def video_generation():
     clips_list = []
     cuts_counter = 0
     pixels_left_on_sides_padding = 20
-
+# ------------------image clips 1-6-----------------------
     for i in range(1,7):
         current_image_file_path = image_files[i-1]
         globals()[f"clip{i}"] = ImageClip(current_image_file_path, duration = clip_duration)
@@ -289,34 +325,13 @@ def video_generation():
         # ========================textclip color selection=================================
         try:
 
-            img = cv2.imread(current_image_file_path)
-
-            # Convert to HSV color space
-            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-            # Compute color histogram
-            hist = cv2.calcHist([hsv], [0, 1], None, [180, 256], [0, 180, 0, 256])
-
-            # Find dominant color(s)
-            max_idx = np.argmax(hist)
-            hue, sat = np.unravel_index(max_idx, hist.shape)
-
-            # Choose complementary color
-            complement_hue = (hue + 90) % 180
-            complement_sat = 255 - sat
-            complement_val = 255
-
-            # Convert complementary color back to RGB
-            complement_hsv = np.array([[complement_hue, complement_sat, complement_val]], dtype=np.uint8)
-            complement_hsv = complement_hsv.reshape((1, 1, 3)) # Add a third dimension to the array
-            complement_rgb = cv2.cvtColor(complement_hsv, cv2.COLOR_HSV2BGR)[0][0]
-
-            complement_color = tuple(complement_rgb)
-            text_color_name = get_closest_color(complement_color)
+            img = ImageClip(current_image_file_path)
+            most_common_color = img.get_average_color()
+            opposite_color = tuple(255 - c for c in most_common_color)
         except:
-            text_color_name = "grey"
+            opposite_color = "darkgrey"
 
-# =============================================================================================
+# ----------------------------------adding subtitle-------------------------------------
         for j in range(2):
             if j == 0:
                 # cuti0
@@ -346,7 +361,7 @@ def video_generation():
                     even += 1
             text = " ".join(subtitle_text_list)
             try:
-                text_clip = TextClip(text, fontsize=25, color=text_color_name ,font = 'Arial-Bold', )
+                text_clip = TextClip(text, fontsize=25, color=opposite_color ,font = 'Arial-Bold', )
             except:
                 text_clip = TextClip(text, fontsize=25, color="grey" ,font = 'Arial-Bold', )
 
@@ -363,9 +378,14 @@ def video_generation():
                                 globals()[f"clip{i + 3}"].set_start(30).set_position("center"),
                                 globals()[f"clip{i + 4}"].set_start(40).set_position("center"),
                                 globals()[f"clip{i + 5}"].set_start(50).set_position("center")])
+    # =================================60sec - 45sec video=================================
+    speed_factor = 60/45
+    video45 = video.speedx(factor = speed_factor )
+
 
     # =======================================adding audio============================================
     feeling = response["feelings"]
+    print(feeling)
     possible_feelings = ["Happiness",
     "Sadness",
     "Anger",
@@ -381,10 +401,11 @@ def video_generation():
             break
         else:
             file_name = "Excitement.mp3"
-    audio_file = AudioFileClip(file_name).subclip(0,60)
-    video_final = video.set_audio(audio_file)
+    audio_file = AudioFileClip(file_name).subclip(0,45)
+    video_final = video45.set_audio(audio_file)
     file_name = response["title"]
     video_final.write_videofile(f"{file_name}.mp4", fps =30)
+    add_to_completed_project()
 
 def copying_imaportant_files():
     current_dir = os.getcwd()
@@ -392,7 +413,7 @@ def copying_imaportant_files():
 
     for filename in os.listdir(current_dir):
         if filename.endswith(f'{file_name}.mp4'):
-            shutil.copy(os.path.join(current_dir, filename), dest_dir)
+            shutil.move(os.path.join(current_dir, filename), dest_dir)
 
 def cleaning():    
     current_dir = os.getcwd()
@@ -415,6 +436,8 @@ def do2():
     script_creation()
     images_extraction()
     video_generation()
+    copying_imaportant_files()
+    cleaning()
     do2()
 
 def do():
@@ -424,9 +447,9 @@ def do():
     script_creation()
     images_extraction()
     video_generation()
+    copying_imaportant_files()
+    cleaning()
     do2()
-    # copying_imaportant_files()
-    # cleaning()
 
 def run():
     def processing(stop_event):
@@ -444,7 +467,7 @@ def run():
         except:
             print("!!!!!!!!!!!!!!!!!!Something went wrong!!!!!!!!!!!!!!!!!!!!!!!!!")
             cleaning()
-            # do()
+            do()
             Exception_counter += 1
             if Exception_counter > 5 :
                 exit()

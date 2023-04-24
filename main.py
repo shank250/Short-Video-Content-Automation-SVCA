@@ -38,14 +38,18 @@ def selecting_topic():
     project_log_location = current_dir + r'\other_files\project_log.json'
     with open(project_log_location, 'r') as f:
         log = json.load(f)
+    with open("data.json", 'r') as f:
+        data= json.load(f)
     old_project_topic_list = []
     for topics in log:
-        topic_name = topics['0']
-        old_project_topic_list.append(topic_name)
+        old_project = log[topics]
+        old_project_topic_list.append(old_project)
     for i in range(len(data)):
         topic_Trends = data[f'{i}']
         if topic_Trends not in old_project_topic_list:
             final_key = f'{i}'
+            break
+    print(final_key)
 
 def add_to_completed_project():
     # structure of project_log
@@ -55,11 +59,12 @@ def add_to_completed_project():
     project_log_location = current_dir + r'\other_files\project_log.json'
     with open("data.json", "r") as f:
         data = json.load(f)
-    project_dict = {
-        "0" : data[final_key]
-    }
-    with open(project_log_location, 'a') as f:
-        json.dump(project_dict, f)
+    with open(project_log_location, "r") as f :
+        log = json.load(f)
+    no_of_topics = len(list(log.keys()))
+    log[f'{no_of_topics + 1}'] = data[final_key][0]
+    with open(project_log_location, 'w') as f:
+        json.dump(log, f)
     print("Sucessfully added the project to log file.")
     
 def trends_extraction():

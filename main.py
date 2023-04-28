@@ -25,33 +25,51 @@ import sys
 import cv2
 import numpy as np
 import webcolors
+from datetime import datetime, timedelta
+from youtube_uploader_selenium import YouTubeUploader
+import time, os
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+import pyautogui
+import random
+import string
 
 change_settings({"IMAGEMAGICK_BINARY": "C:/Program Files/ImageMagick-7.1.1-Q16/magick.exe"})
 openai.api_key = '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'
 discarded_trends = []
 Exception_counter = 0
 final_key = "0"
+video_file_name = "finalvideo.mp4"
 
 def selecting_topic():
     # project log will keep track of the completed projects
+    global final_key;
     current_dir = os.getcwd()
     project_log_location = current_dir + r'\other_files\project_log.json'
     with open(project_log_location, 'r') as f:
         log = json.load(f)
-    with open("data.json", 'r') as f:
-        data= json.load(f)
+    with open("data.json", 'r') as f2:
+        data= json.load(f2)
     old_project_topic_list = []
     for topics in log:
         old_project = log[topics]
         old_project_topic_list.append(old_project)
+    print("Existing project list : ",old_project_topic_list,"\nTotla no of trends from google trends : ",len(data))
     for i in range(len(data)):
-        topic_Trends = data[f'{i}']
+        topic_Trends = data[f'{i}'][0]
         if topic_Trends not in old_project_topic_list:
-            final_key = f'{i}'
+            final_key = str(f'{i}')
+            print("Now working on : ", topic_Trends)
             break
-    print(final_key)
+        else:
+            print("This trend clip already exits : ",topic_Trends)
+    
+
+    final_key = str(final_key)
+    print("Final key : ",final_key,type(final_key))
 
 def add_to_completed_project():
+    global final_key;
     # structure of project_log
     # keys : "0"
     # values: "trends title"
@@ -66,7 +84,7 @@ def add_to_completed_project():
     with open(project_log_location, 'w') as f:
         json.dump(log, f)
     print("Sucessfully added the project to log file.")
-    
+
 def trends_extraction():
     global data ;
     data = {}
@@ -106,22 +124,57 @@ def trends_extraction():
     with open("data.json", "w") as f:
         json.dump(data, f)
     print("Succesfully dumped the trends data.")
+    
+    now = datetime.now()
+    now = str(now)
+    current_date = now[:10]
+    current_hour = now[11:13]
+
+    time_dict = {}
+    time_dict["date"] = current_date
+    time_dict["hour"] = current_hour
+    print(time_dict)
+
+    with open('last_run.json', 'w') as f:
+        json.dump(time_dict, f)
+
+def check_trends_extraction():
+    now = datetime.now()
+    now = str(now)
+    current_date = now[:10]
+    current_hour = now[11:13]
+    print("Current datetime :", now, "\nTodays date:", current_date,"\nCurrent hour :", current_hour)
+
+    with open('last_run.json', 'r') as f:
+        trend_last_run = json.load(f)
+
+    if trend_last_run['date'] == current_date :
+        if (int(trend_last_run['hour']) + 6) < int(current_hour) :
+            # run the trends
+            trends_extraction()
+        else:
+            # no changes in the trends.json and we would not run the trends
+            print("Trend is upto date.")
+            pass
+    else:
+        # run the trends
+        trends_extraction()
 
 def article_ext_source():
     # # opening the firefox application
     print("opening the firefox application")
     # now loading the data from the trends 
     print("now loading the data from the trends...")
-    # with open("data.json", "r") as f:
-    #     data = json.load(f)
+    with open("data.json", "r") as f:
+        data = json.load(f)
     # print("data loaded")
     # keyword : index
     # value : details list
     # details   0 - title
     #           1 - link 
     #           2 - list of articles link
-    # articles = {}
-    # counter = 0
+    articles = {}
+    counter = 0
     # for key in data:
     #     if data[key][0] in discarded_trends : 
     #         pass
@@ -129,9 +182,9 @@ def article_ext_source():
     #         final_key = key
     #         break
     # discarded_trends.append(data[final_key][0])
-    
     selecting_topic()
-
+    
+    print(data[final_key][0])
     for link in data[final_key][2:]:
         url = 'about:reader?url=' + link
         webbrowser.register('firefox',
@@ -195,7 +248,7 @@ def article_filtration():
     print("Succesfully dumped  all the  articles. \n:)")
 
 def script_creation():
-    details = "Using the given article create a script for a youtube 1 min shorts video within 100 words. \n The response should only be in python dictionary format  with title, feelings, image_instruction and script as keys and their values.\n the key feelings should only have one of these values     ness, Sadness, Anger, Fear, Love, Excitement, Anxiety, Frustration or None."
+    details = "Using the given article create a script for a youtube 1 min shorts video within 100 words. \n The response should only be in python dictionary format  with title, feelings, image_instruction, tags and script as keys and their values.\n the key feelings should only have one of these values Sadness, Anger, Fear, Love, Excitement, Anxiety, Frustration or None."
     print("now loading the articles from the filtered articles...")
     with open("filtered_articles.json", "r") as f:
         articles = json.load(f)
@@ -234,13 +287,10 @@ def script_creation():
         json.dump(response_json, f)
     print("Succesfully dumped the  data. :)")
 
-def images_extraction():
+def images_extraction(num_of_images = 20):
     with open("sample_subtitle.json", "r") as f:
         response = json.load(f)
-
-    query_string = response["image_instruction"]
-    num_of_images = 6
-
+    query_string = str(response["tags"])
     downloader.download(query_string, 
                         limit = num_of_images,  
                         output_dir='image', 
@@ -248,20 +298,93 @@ def images_extraction():
                         force_replace=False, 
                         timeout=60, verbose=True)
 
-def video_generation():
-# -----------------subtitle----------------------
+    abs_image_folder_locarion = f'image\\{response["tags"]}'
+    current_dir = os.getcwd()
+    image_folder = os.path.join(current_dir, abs_image_folder_locarion)
+    image_files = [os.path.join(image_folder, f) for f in os.listdir(image_folder) ]
+    print(image_files)
+    i = 1
+    no_of_filtered_images = 0
+    image_details = {}
+    for image_path in image_files:
+        img = cv2.imread(image_path)
+        try :
+            height, width, channels = img.shape
+            print(f"image no : {i}")
+            aspect_ratio = float(width)/height
+            MIN_ASPECT_RATIO = 1.3
+            MAX_ASPECT_RATIO  = 2.0
+            if aspect_ratio >= MIN_ASPECT_RATIO and aspect_ratio <= MAX_ASPECT_RATIO:
+                print("File Size is suitable video generation.")
+                print("NO of pixels : ", width*height)
+                print("height : ",height ,"width : ",width)
+                if height > 600 and width > 16*height/9:
+                    # images having h = 600px & w = 1066px more than this are qualified
+                    # 1. h : 720px+ and w : 12080px then we will we will resize height and width to 720px and 1280 then crop
+                    # 2. h : 600px+ and w : 1066px then we will rezize then crop
+                    scale_factor = 760 / img.shape[0]
+                    new_width = int(img.shape[1] * scale_factor)
+                    resized_img = cv2.resize(img, (new_width, 760), interpolation=cv2.INTER_CUBIC)
+                    # resized_img = cv2.resize(img, (int(16*height/9), 720))
+                    height_resized, width_resized, channels_resized = resized_img.shape
+                    crop_left = int((width_resized - 1280)/2)
+                    crop_right = crop_left + 1280
+                    croped_img = resized_img[:, crop_left:crop_right]
+                    print(f"=======Resized image : {resized_img.shape}============")
+                    letters = string.ascii_lowercase
+                    current_dir = os.getcwd()
+                    img_name = ''.join(random.choice(letters) for i in range(5))
+                    abs_image_folder_locarion = f'image_downloads\\{img_name}.jpg'
+                    img_path = os.path.join(current_dir, abs_image_folder_locarion)
+                    
+
+                    cv2.imwrite(img_path, croped_img)
+                    no_of_filtered_images += 1
+                    print(no_of_filtered_images, " added sucessfully")
+                    if no_of_filtered_images == 6 :
+                        print("all 6 images have been imported sucessfully. ")                        
+                        break
+                else:
+                    # deleting other images
+                    os.remove(image_path)
+                    print(f"Image File no {i} daleted.")
+            else:
+                print('Image dimensions are not suitable for landscape images.')
+                os.remove(image_path)
+                print(f"Image File no {i} daleted.")
+        except:
+            os.remove(image_path)
+            print(f"Image File no {i} daleted.")
+        i += 1
+    if no_of_filtered_images != 6:
+        print("retring because less images were filtered")
+        image_folder = r'/image_downloads/'
+        for filename in os.listdir(image_folder):
+            os.remove(os.path.join(image_folder, filename))
+        images_extraction(30)
+
+
+def video_generation(): 
+    global video_file_name;
+
+    # -----------------subtitle----------------------
     global file_name
+    
 
     with open("sample_subtitle.json", "r") as f:
         response = json.load(f)
+    current_dir = os.getcwd()
+    abs_image_folder_locarion = r'image_downloads'
+    image_folder = os.path.join(current_dir, abs_image_folder_locarion)
 
-    abs_image_folder_locarion = f'image\\{response["image_instruction"]}'
+    # abs_image_folder_locarion = f'image\\{response["tags"]}'
 
     current_dir = os.getcwd()
     image_folder = os.path.join(current_dir, abs_image_folder_locarion)
     video_file = f'test{response["title"]}'
 
-    image_files = [os.path.join(image_folder, f) for f in os.listdir(image_folder) if f.endswith('.jpg') or f.endswith('.png')]
+    image_files = [os.path.join(image_folder, f) for f in os.listdir(image_folder) ]
+    # if f.endswith('.jpg') or f.endswith('.JPG') or f.endswith('.png') or f.endswith('.PNG')or f.endswith('.jpeg') or f.endswith('.JPEG')
     no_of_images = len(image_files)
 
     # 120 word
@@ -310,13 +433,16 @@ def video_generation():
     clips_list = []
     cuts_counter = 0
     pixels_left_on_sides_padding = 20
-# ------------------image clips 1-6-----------------------
+    print(len(image_files))
+    # ------------------image clips 1-6-----------------------
     for i in range(1,7):
         current_image_file_path = image_files[i-1]
         globals()[f"clip{i}"] = ImageClip(current_image_file_path, duration = clip_duration)
         clip = globals()[f"clip{i}"]
         height = clip.size[1]
         width = clip.size[0]
+        new_height = height
+        new_width = int(new_height * 9 / 16)
         clip = clip.set_position(lambda t:( t * (width-new_width-pixels_left_on_sides_padding)/clip_duration, 'center') )
         clip = CompositeVideoClip([clip], size=clip.size)
         if width > height: 
@@ -326,17 +452,18 @@ def video_generation():
             clip = clip.crop(x1 = width - new_width - (pixels_left_on_sides_padding/2), x2 = width).resize((new_width, height))
         else:
             clip = clip.resize((width, height))
-        
+            new_height = height
+            new_width = int(new_height * 9 / 16)
+
         # ========================textclip color selection=================================
         try:
-
             img = ImageClip(current_image_file_path)
             most_common_color = img.get_average_color()
             opposite_color = tuple(255 - c for c in most_common_color)
         except:
-            opposite_color = "darkgrey"
-
-# ----------------------------------adding subtitle-------------------------------------
+            opposite_color = "grey"
+        print(opposite_color)
+    # ----------------------------------adding subtitle-------------------------------------
         for j in range(2):
             if j == 0:
                 # cuti0
@@ -386,10 +513,12 @@ def video_generation():
     # =================================60sec - 45sec video=================================
     speed_factor = 60/45
     video45 = video.speedx(factor = speed_factor )
-
-
     # =======================================adding audio============================================
-    feeling = response["feelings"]
+    try : 
+        feeling = response["feelings"]
+    except :
+        feeling = response["feeling"]
+
     print(feeling)
     possible_feelings = ["Happiness",
     "Sadness",
@@ -408,19 +537,96 @@ def video_generation():
             file_name = "Excitement.mp3"
     audio_file = AudioFileClip(file_name).subclip(0,45)
     video_final = video45.set_audio(audio_file)
-    file_name = response["title"]
-    video_final.write_videofile(f"{file_name}.mp4", fps =30)
+
+    letters = string.ascii_lowercase
+    result_str = ''.join(random.choice(letters) for i in range(5))
+
+    video_file_name = result_str + ".mp4"
+    # video_final.write_videofile(f"{file_name}.mp4", fps =30,codec="libx264")
+    video_final.write_videofile(video_file_name, fps =30,codec="libx264")
+
     add_to_completed_project()
 
 def copying_imaportant_files():
     current_dir = os.getcwd()
-    dest_dir = 'C:\\Users\\980ar\\Dropbox\\youtube-backupfiles' # Replace with the destination directory path
+    # G:\My Drive\new folder
+    dest_dir = 'G:\\My Drive\\new folder' # Replace with the destination directory path
 
     for filename in os.listdir(current_dir):
-        if filename.endswith(f'{file_name}.mp4'):
+        if filename.endswith(video_file_name):
             shutil.move(os.path.join(current_dir, filename), dest_dir)
+    print('Moved the file to desiered location.')
 
-def cleaning():    
+def upload_on_youtube():
+    # add left click after every mouse move
+    with open("sample_subtitle.json", "r") as f:
+        data = json.load(f)
+    pyautogui.PAUSE = 7
+    pyautogui.press('win')
+    pyautogui.write('google chrome beta')
+    pyautogui.press('enter')
+    pyautogui.moveTo(240,62)
+    pyautogui.click()
+    # pyautogui.mouseInfo()
+
+    pyautogui.write('studio.youtube.com')
+    pyautogui.press('enter')
+
+    # create button
+    pyautogui.moveTo(1773,125)
+    pyautogui.click()
+    # upload button
+    pyautogui.moveTo(1703,178)
+    pyautogui.click()
+
+    # file selection
+    pyautogui.moveTo(967,725)
+    pyautogui.click()
+
+    # getting the video file
+    pyautogui.moveTo(282,222)
+    pyautogui.click()
+
+    # selecting the video
+    pyautogui.press('enter')
+    pyautogui.click()
+
+    # video title
+    pyautogui.moveTo(448,459)
+    pyautogui.click(clicks=2)
+
+    # video title
+    pyautogui.write(data["title"])
+
+    # 2 times tabs
+    pyautogui.press('tab')
+    pyautogui.press('tab')
+
+    pyautogui.write(data["script"])
+
+    # next button
+    pyautogui.moveTo(1514,974)
+    pyautogui.click()
+
+    # next button
+    pyautogui.moveTo(1514,974)
+    pyautogui.click()
+
+    # next button
+    pyautogui.moveTo(1514,974)
+    pyautogui.click()
+
+    # next button
+    pyautogui.moveTo(1514,974)
+    pyautogui.click()
+
+def cleaning():   
+    current_dir = os.getcwd()
+    abs_image_folder_locarion = r'image_downloads'
+    image_folder = os.path.join(current_dir, abs_image_folder_locarion)
+
+    for filename in os.listdir(image_folder):
+        os.remove(os.path.join(image_folder, filename)) 
     current_dir = os.getcwd()
     with open("sample_subtitle.json", "r") as f:
         response = json.load(f)
@@ -434,28 +640,32 @@ def cleaning():
     for filename_jpg in os.listdir(image_folder):
         if filename_jpg.endswith('.jpg'):
             os.remove(os.path.join(image_folder, filename_jpg))
+    print("Cleaning process completed.")
 
 def do2():
+    check_trends_extraction()
     article_ext_source()
     article_filtration()
     script_creation()
     images_extraction()
     video_generation()
     copying_imaportant_files()
-    cleaning()
-    do2()
+    upload_on_youtube()
+    # cleaning()
+    do()
 
 def do():
-    trends_extraction()
+    check_trends_extraction()
     article_ext_source()
     article_filtration()
     script_creation()
     images_extraction()
     video_generation()
     copying_imaportant_files()
-    cleaning()
+    upload_on_youtube()
+    # cleaning()
     do2()
-
+    
 def run():
     def processing(stop_event):
         while not stop_event.is_set():
@@ -486,4 +696,4 @@ def run():
     stop_event.set()
     print("\nDone!")
 
-do()
+video_generation()

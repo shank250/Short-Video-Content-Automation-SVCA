@@ -287,7 +287,7 @@ def script_creation():
         json.dump(response_json, f)
     print("Succesfully dumped the  data. :)")
 
-def images_extraction(num_of_images = 20):
+def images_extraction(num_of_images = 30):
     with open("sample_subtitle.json", "r") as f:
         response = json.load(f)
     query_string = str(response["tags"])
@@ -318,7 +318,7 @@ def images_extraction(num_of_images = 20):
                 print("File Size is suitable video generation.")
                 print("NO of pixels : ", width*height)
                 print("height : ",height ,"width : ",width)
-                if height > 600 and width > 16*height/9:
+                if height > 500 and width > 16*height/9:
                     # images having h = 600px & w = 1066px more than this are qualified
                     # 1. h : 720px+ and w : 12080px then we will we will resize height and width to 720px and 1280 then crop
                     # 2. h : 600px+ and w : 1066px then we will rezize then crop
@@ -358,11 +358,13 @@ def images_extraction(num_of_images = 20):
         i += 1
     if no_of_filtered_images != 6:
         print("retring because less images were filtered")
-        image_folder = r'/image_downloads/'
+        current_dir = os.getcwd()
+        abs_image_folder_locarion = r'image_downloads'
+        image_folder = os.path.join(current_dir, abs_image_folder_locarion)
+
         for filename in os.listdir(image_folder):
             os.remove(os.path.join(image_folder, filename))
-        images_extraction(30)
-
+        images_extraction(90)
 
 def video_generation(): 
     global video_file_name;
@@ -463,6 +465,18 @@ def video_generation():
         except:
             opposite_color = "grey"
         print(opposite_color)
+                # ==================
+        x1, y1 = 0, 540
+        x2, y2 = 450, 760
+
+        # Create a black clip with the specified size
+        rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(0, 0, 0))
+
+        # Set the opacity of the clip to 0.5 (50% transparent)
+        rect_clip = rect_clip.set_opacity(0.5)
+
+        # Create a CompositeVideoClip with the rectangle clip positioned at (x1, y1)
+        clip = CompositeVideoClip([clip, rect_clip.set_pos((x1, y1))])
     # ----------------------------------adding subtitle-------------------------------------
         for j in range(2):
             if j == 0:
@@ -476,6 +490,8 @@ def video_generation():
             filename = f"cut_video_processed{i}{j}.mp4"
             main_cut.write_videofile(filename  , fps =30, codec="libx264")
             print("done")
+
+            # ==================
             text_clip = VideoFileClip(filename=filename )
             text = globals()[f"cut_text{cuts_counter}"]
             text_list = text.split(" ")
@@ -484,20 +500,23 @@ def video_generation():
             suttitle_line_1_list = text_list[:mid]
             suttitle_line_2_list = text_list[mid:]
             suttitle_line_1_list.append("\n")
-            even = 0
-            subtitle_text_list = []
-            for words in text_list:
-                    subtitle_text_list.append(words)
-                    if even%2 == 0:
-                        subtitle_text_list.append("\n")
-                    even += 1
+            suttitle_line_2_list.append("...")
+            subtitle_text_list = suttitle_line_1_list + suttitle_line_2_list
+
+            #//////////////// older logic with 2 words////////////////////
+            # even = 0
+            # for words in text_list:
+            #         subtitle_text_list.append(words)
+            #         if even%2 == 0:
+            #             subtitle_text_list.append("\n")
+            #         even += 1
             text = " ".join(subtitle_text_list)
             try:
-                text_clip = TextClip(text, fontsize=25, color=opposite_color ,font = 'Arial-Bold', )
+                text_clip = TextClip(text, fontsize=23, color="white" ,font = 'Arial-Bold', stroke_color = "yellow", stroke_width = 1 )
             except:
-                text_clip = TextClip(text, fontsize=25, color="grey" ,font = 'Arial-Bold', )
+                text_clip = TextClip(text, fontsize=23, color="white" ,font = 'Arial-Bold', stroke_color = "yellow", stroke_width = 1)
 
-            text_clip = text_clip.set_position("center","center").set_duration(clip_duration/2)
+            text_clip = text_clip.set_position((0.25,0.8), relative=True).set_duration(clip_duration/2)
             globals()[f"cut_final{i}{j}"] = CompositeVideoClip([main_cut, text_clip]) 
             cuts_counter += 1
 
@@ -696,4 +715,4 @@ def run():
     stop_event.set()
     print("\nDone!")
 
-video_generation()
+do()

@@ -20,7 +20,7 @@ from bing_image_downloader import downloader
 import json
 import shutil
 import threading
-
+import time
 import sys
 import cv2
 import numpy as np
@@ -42,20 +42,6 @@ Exception_counter = 0
 final_key = "0"
 video_file_name = "finalvideo.mp4"
 
-def check_program_termination():
-    
-    now = datetime.now()
-    now = str(now)
-    current_date = now[:10]
-    current_hour = now[11:13]
-    current_min = now[14:16]
-    termination_date = current_date
-    termination_hour = int(current_hour) + 1
-    termination_min = int(current_min)
-    
-    print("Current datetime :", now, "\nTodays date:", current_date,"\nCurrent hour :", current_hour,"\nCurrent Minute :", current_min)
-    print("Program Initiated at datetime :", now, "\nProgram termination at Datetime:", termination_date,"\nTermination hour :", termination_hour,"\nTermination Minute :", termination_min)
-
 def selecting_topic():
     # project log will keep track of the completed projects
     global final_key;
@@ -70,7 +56,7 @@ def selecting_topic():
         old_project = log[topics]
         old_project_topic_list.append(old_project)
     print("Existing project list : ",old_project_topic_list,"\nTotla no of trends from google trends : ",len(data))
-    for i in range(len(data) - 1,0, -1):
+    for i in range(len(data)):
         topic_Trends = data[f'{i}'][0]
         if topic_Trends not in old_project_topic_list:
             final_key = str(f'{i}')
@@ -198,7 +184,7 @@ def article_ext_source():
     #         break
     # discarded_trends.append(data[final_key][0])
     selecting_topic()
-    gui.PAUSE = 0.5
+    gui.hotkey('alt', 'tab')
     print(data[final_key][0])
     for link in data[final_key][2:]:
         url = 'about:reader?url=' + link
@@ -208,11 +194,10 @@ def article_ext_source():
         webbrowser.get('firefox').open(url)
         time.sleep(3)
         # clicking point (x=439, y=127)
-        gui.click(x=800, y=500)
         gui.hotkey('ctrl', 'a')
-        # time.sleep(1)
+        time.sleep(1)
         gui.hotkey('ctrl', 'c')
-        # time.sleep(1)
+        time.sleep(1)
         clipboard_text = clip.paste()
         article = str(clipboard_text)
         # print(article)
@@ -226,9 +211,10 @@ def article_ext_source():
     # one mare feature is to be add thata the open tabs will automatically get deleted
     # =============================================filtration process========================================
     for i in range(counter):
-        # time.sleep(1)
-        gui.click(x=800, y=500)
+        time.sleep(1)
         gui.hotkey('ctrl', 'w')
+    gui.hotkey('alt', 'tab')
+    
 
 def article_filtration():
     print("now loading the articles from the trends...")
@@ -417,6 +403,7 @@ def video_generation():
 
     # -----------------subtitle----------------------
     global file_name
+    
 
     with open("sample_subtitle.json", "r") as f:
         response = json.load(f)
@@ -502,7 +489,7 @@ def video_generation():
             new_height = height
             new_width = int(new_height * 9 / 16)
 
-        # ========================textclip background color selection=================================
+        # ========================textclip color selection=================================
         try:
             img = ImageClip(current_image_file_path)
             most_common_color = img.get_average_color()
@@ -514,51 +501,11 @@ def video_generation():
         x1, y1 = 0, 500
         x2, y2 = 450, 760
 
-        # from SecretColors import palette
-        # p = palette.Palette("material" ,color_mode = 'rgb')
-        # colors = p.random(no_of_colors = 10)
-        # #  gradient=False
-        # def convert_rgb_to_255(rgb):
-        #     return tuple(int(x * 255) for x in rgb)
-
-        # rgb_values = (0.5, 0.3, 0.8)
-        # rgb_255_0 = convert_rgb_to_255(colors[0])
-        # rgb_list = []
-        # for i in range(10):
-        #     rgb_255 = convert_rgb_to_255(colors[i])
-        #     rgb_list.append(rgb_255)
-
-        # # rgb_255_1 = convert_rgb_to_255(colors[1])
-        # def calculate_brightness(rgb):
-        #     r, g, b = rgb
-        #     return (r * 299 + g * 587 + b * 114) / 1000
-
-        # def select_light_and_dark_colors(colors):
-        #     lightest_color = None
-        #     darkest_color = None
-
-        #     for rgb in colors:
-        #         brightness = calculate_brightness(rgb)
-
-        #         if lightest_color is None or brightness > calculate_brightness(lightest_color):
-        #             lightest_color = rgb
-
-        #         if darkest_color is None or brightness < calculate_brightness(darkest_color):
-        #             darkest_color = rgb
-
-        #     return lightest_color, darkest_color
-        # # colors = rgb_list
-        # # print(rgb_255_0,rgb_255_1)
-        # lightest_color, darkest_color = select_light_and_dark_colors(rgb_list)
-
-
         # Create a black clip with the specified size
-        # rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(0, 0, 0))
-        # rect_clip = ColorClip(size=(x2-x1, y2-y1), color=lightest_color)
-        rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(255,255,255))
+        rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(0, 0, 0))
 
         # Set the opacity of the clip to 0.5 (50% transparent)
-        rect_clip = rect_clip.set_opacity(1)
+        rect_clip = rect_clip.set_opacity(0.5)
 
         # Create a CompositeVideoClip with the rectangle clip positioned at (x1, y1)
         clip = CompositeVideoClip([clip, rect_clip.set_pos((x1, y1))])
@@ -597,9 +544,9 @@ def video_generation():
             #         even += 1
             text = " ".join(subtitle_text_list)
             try:
-                text_clip = TextClip(text, fontsize=23, color="black" ,font = 'Arial-Bold', stroke_color = "black", stroke_width = 1 )
+                text_clip = TextClip(text, fontsize=23, color="white" ,font = 'Arial-Bold', stroke_color = "white", stroke_width = 1 )
             except:
-                text_clip = TextClip(text, fontsize=23, color="black" ,font = 'Arial-Bold', stroke_color = "black", stroke_width = 1)
+                text_clip = TextClip(text, fontsize=23, color="white" ,font = 'Arial-Bold', stroke_color = "white", stroke_width = 1)
             
             text_clip = text_clip.set_position((0.11,0.7), relative=True).set_duration(clip_duration/2)
             globals()[f"cut_final{i}{j}"] = CompositeVideoClip([main_cut, text_clip]) 
@@ -624,8 +571,6 @@ def video_generation():
         feeling = response["feeling"]
 
     print(feeling)
-    if feeling == "None":
-        feeling = "Excitement"
     possible_feelings = ["Happiness",
     "Sadness",
     "Anger",
@@ -634,14 +579,14 @@ def video_generation():
     "Excitement",
     "Anxiety",
     "Frustration"]
-    file_name = f"{feeling}.mp3"
+        
     current_dir = os.getcwd()
     abs_audio_folder_locarion = r'audio'
     audio_folder = os.path.join(current_dir, abs_audio_folder_locarion)
     for checking_possible_feelings in possible_feelings :
         if feeling == checking_possible_feelings:
             try:
-                feeling_folder = os.path.join(audio_folder,feeling)
+                feeling_folder = os.apth.join(audio_folder,feeling)
                 audio_folder_content = [os.path.join(feeling_folder, f) for f in os.listdir(feeling_folder) ]
                 n = len(audio_folder_content)
                 random_index = random.randint(0, n)
@@ -680,11 +625,11 @@ def upload_on_youtube():
     # add left click after every mouse move
     with open("sample_subtitle.json", "r") as f:
         data = json.load(f)
-    pyautogui.PAUSE = 3
+    pyautogui.PAUSE = 8
     pyautogui.press('win')
     pyautogui.write('google chrome beta')
     pyautogui.press('enter')
-    time.sleep(12)
+    time.sleep(5)
     pyautogui.moveTo(240,62)
     pyautogui.click()
     # pyautogui.mouseInfo()
@@ -693,20 +638,16 @@ def upload_on_youtube():
     pyautogui.press('enter')
 
     # create button
-    time.sleep(12)
-    
     pyautogui.moveTo(1773,125)
     pyautogui.click()
     # upload button
     pyautogui.moveTo(1703,178)
     pyautogui.click()
 
-
     # file selection
     pyautogui.moveTo(967,725)
     pyautogui.click()
 
-    time.sleep(5)
     # getting the video file
     pyautogui.moveTo(282,222)
     pyautogui.click()
@@ -714,29 +655,23 @@ def upload_on_youtube():
     # selecting the video
     pyautogui.press('enter')
     pyautogui.click()
-    time.sleep(5)
-    pyautogui.PAUSE = 0.4
 
     # video title
     pyautogui.moveTo(448,459)
     pyautogui.click(clicks=2)
 
-    tag_string = "\n#Trends"
-    for i in data['tags']:
-        tag_string += f' #{i}'
-    print(tag_string)
     # video title
-    pyautogui.write(data["title"] + tag_string)
+    pyautogui.write(data["title"])
 
     # 2 times tabs
     pyautogui.press('tab')
     pyautogui.press('tab')
 
 
-    # tag_string = "\n#Trends"
-    # for i in data['tags']:
-    #     tag_string += f' #{i}'
-    # print(tag_string)
+    tag_string = "\n#Trends"
+    for i in data['tags']:
+        tag_string += f' #{i}'
+    print(tag_string)
     pyautogui.write(data["script"] + tag_string)
 
 
@@ -752,7 +687,6 @@ def upload_on_youtube():
 
     # pyautogui.write(data["tags"])
 
-
     # next button
     pyautogui.moveTo(1514,974)
     pyautogui.click()
@@ -768,7 +702,6 @@ def upload_on_youtube():
     # next button
     pyautogui.moveTo(1514,974)
     pyautogui.click()
-    time.sleep(10)
     pyautogui.hotkey("ctrl", "w")
 
 def cleaning():   
@@ -846,24 +779,4 @@ def run():
     do_calculation()
     stop_event.set()
     print("\nDone!")
-
-def testt():
-    import tkinter as tk
-    from tkinter import messagebox
-
-    def show_error():
-        messagebox.showerror("Error", "An error occurred!")
-
-    # Create the main window
-    window = tk.Tk()
-
-    # Create a button to trigger the error dialog
-    button = tk.Button(window, text="Show Error", command=show_error)
-    button.pack()
-
-    # Start the main event loop
-    window.mainloop()
-
-
-
-do()
+video_generation()

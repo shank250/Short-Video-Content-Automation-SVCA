@@ -1,7 +1,7 @@
 import os
 import json
-import pytrends
-import pprint
+# import pytrends
+# import pprint
 import pandas as pd
 import json
 from pytrends.request import TrendReq
@@ -15,7 +15,7 @@ import os
 from moviepy.editor import *
 from moviepy.config import change_settings
 from moviepy.video.io.VideoFileClip import VideoFileClip
-from moviepy.video.tools.subtitles import SubtitlesClip
+# from moviepy.video.tools.subtitles import SubtitlesClip
 from bing_image_downloader import downloader
 import json
 import shutil
@@ -23,10 +23,10 @@ import threading
 
 import sys
 import cv2
-import numpy as np
-import webcolors
+# import numpy as np
+# import webcolors
 from datetime import datetime, timedelta
-from youtube_uploader_selenium import YouTubeUploader
+# from youtube_uploader_selenium import YouTubeUploader
 import time, os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -43,7 +43,6 @@ final_key = "0"
 video_file_name = "finalvideo.mp4"
 
 def check_program_termination():
-    
     now = datetime.now()
     now = str(now)
     current_date = now[:10]
@@ -52,7 +51,6 @@ def check_program_termination():
     termination_date = current_date
     termination_hour = int(current_hour) + 1
     termination_min = int(current_min)
-    
     print("Current datetime :", now, "\nTodays date:", current_date,"\nCurrent hour :", current_hour,"\nCurrent Minute :", current_min)
     print("Program Initiated at datetime :", now, "\nProgram termination at Datetime:", termination_date,"\nTermination hour :", termination_hour,"\nTermination Minute :", termination_min)
 
@@ -78,8 +76,6 @@ def selecting_topic():
             break
         else:
             print("This trend clip already exits : ",topic_Trends)
-    
-
     final_key = str(final_key)
     print("Final key : ",final_key,type(final_key))
 
@@ -108,14 +104,8 @@ def trends_extraction():
     # details   0 - title
     #           1 - link 
     #           2 - list of articles
-
     pytrend = TrendReq()
-
     trending_today = pytrend.today_searches(pn = 'IN')
-    # realtime_trending_searches
-
-    df_trending_today = pd.DataFrame(trending_today)
-
     links =[]
     i = 0
     for path in trending_today:
@@ -278,7 +268,6 @@ def script_creation():
         do()
 
     try:
-            
         for article in articles: 
             article_content = articles[article]
             splitted_article = article_content.split("minute", 1)
@@ -306,6 +295,7 @@ def script_creation():
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!error in open ai request!!!!!!!!!!!!!!!!!!!!!!!!")
         print("-------------------------retrying------------------------------------")
         script_creation()
+
     with open("sample_subtitle.json", "w") as f:
         json.dump(response_json, f)
     print("Succesfully dumped the  data. :)")
@@ -553,12 +543,12 @@ def video_generation():
 
 
         # Create a black clip with the specified size
-        # rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(0, 0, 0))
+        rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(0, 0, 0))
         # rect_clip = ColorClip(size=(x2-x1, y2-y1), color=lightest_color)
-        rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(255,255,255))
+        # rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(0,0,0))
 
         # Set the opacity of the clip to 0.5 (50% transparent)
-        rect_clip = rect_clip.set_opacity(1)
+        rect_clip = rect_clip.set_opacity(0.05)
 
         # Create a CompositeVideoClip with the rectangle clip positioned at (x1, y1)
         clip = CompositeVideoClip([clip, rect_clip.set_pos((x1, y1))])
@@ -597,9 +587,9 @@ def video_generation():
             #         even += 1
             text = " ".join(subtitle_text_list)
             try:
-                text_clip = TextClip(text, fontsize=23, color="black" ,font = 'Arial-Bold', stroke_color = "black", stroke_width = 1 )
+                text_clip = TextClip(text, fontsize=23, color="white" ,font = 'Arial-Bold', stroke_color = "white", stroke_width = 1 )
             except:
-                text_clip = TextClip(text, fontsize=23, color="black" ,font = 'Arial-Bold', stroke_color = "black", stroke_width = 1)
+                text_clip = TextClip(text, fontsize=23, color="white" ,font = 'Arial-Bold', stroke_color = "white", stroke_width = 1)
             
             text_clip = text_clip.set_position((0.11,0.7), relative=True).set_duration(clip_duration/2)
             globals()[f"cut_final{i}{j}"] = CompositeVideoClip([main_cut, text_clip]) 

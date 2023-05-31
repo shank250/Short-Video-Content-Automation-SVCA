@@ -184,7 +184,10 @@ def article_ext_source():
     #         break
     # discarded_trends.append(data[final_key][0])
     selecting_topic()
-    gui.hotkey('alt', 'tab')
+    
+    # edits
+    # gui.hotkey('alt', 'tab')
+    
     print(data[final_key][0])
     for link in data[final_key][2:]:
         url = 'about:reader?url=' + link
@@ -213,7 +216,9 @@ def article_ext_source():
     for i in range(counter):
         time.sleep(1)
         gui.hotkey('ctrl', 'w')
-    gui.hotkey('alt', 'tab')
+
+    # edits
+    # gui.hotkey('alt', 'tab')
     
 
 def article_filtration():
@@ -614,8 +619,7 @@ def video_generation():
 def copying_imaportant_files():
     current_dir = os.getcwd()
     # G:\My Drive\new folder
-    dest_dir = 'G:\\My Drive\\new folder' # Replace with the destination directory path
-
+    dest_dir = 'G:\\My Drive\\new folder' 
     for filename in os.listdir(current_dir):
         if filename.endswith(video_file_name):
             shutil.move(os.path.join(current_dir, filename), dest_dir)
@@ -779,4 +783,4 @@ def run():
     do_calculation()
     stop_event.set()
     print("\nDone!")
-video_generation()
+do()

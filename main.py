@@ -20,10 +20,11 @@ from bing_image_downloader import downloader
 import json
 import shutil
 import threading
-
+from googlesearch import SearchResult
 import sys
 import cv2
 # import numpy as np
+from googlesearch import search
 # import webcolors
 from datetime import datetime, timedelta
 # from youtube_uploader_selenium import YouTubeUploader
@@ -33,6 +34,7 @@ from selenium.webdriver.common.by import By
 import pyautogui
 import random
 import string
+from telegram.ext import Updater, CommandHandler
 pyautogui.FAILSAFE = False
 
 change_settings({"IMAGEMAGICK_BINARY": "C:/Program Files/ImageMagick-7.1.1-Q16/magick.exe"})
@@ -41,6 +43,7 @@ discarded_trends = []
 Exception_counter = 0
 final_key = "0"
 video_file_name = "finalvideo.mp4"
+ALLOWED_USERS = [6004512427]
 
 def check_program_termination():
     now = datetime.now()
@@ -106,40 +109,31 @@ def trends_extraction():
     #           2 - list of articles
     pytrend = TrendReq()
     trending_today = pytrend.today_searches(pn = 'IN')
-    links =[]
-    i = 0
-    for path in trending_today:
+    for i ,path in enumerate(trending_today):
         details = []
         url = "https://trends.google.com" + path
         title_uf = url[43:]
         title_uf_2 = title_uf.split("&")
-        # adding details
         details.append(title_uf_2[0])
-        details.append("https://trends.google.com" + path)
+        details.append(url)
         data[i] = details
         print("Working on ", data[i][0], " ...")
-        from googlesearch import search
-        from googlesearch import SearchResult
         url_list = list(search(data[i][0]))
         data[i] = data[i] + url_list
         print(data[i])
         i += 1
     print("Sucessfully got the trends. [",len(data),"]")
-    # got the  trending for the day sucessfully
     with open("data.json", "w") as f:
         json.dump(data, f)
     print("Succesfully dumped the trends data.")
-    
     now = datetime.now()
     now = str(now)
     current_date = now[:10]
     current_hour = now[11:13]
-
     time_dict = {}
     time_dict["date"] = current_date
     time_dict["hour"] = current_hour
     print(time_dict)
-
     with open('last_run.json', 'w') as f:
         json.dump(time_dict, f)
 
@@ -155,38 +149,18 @@ def check_trends_extraction():
 
     if trend_last_run['date'] == current_date :
         if (int(trend_last_run['hour']) + 2) < int(current_hour) :
-            # run the trends
             trends_extraction()
         else:
-            # no changes in the trends.json and we would not run the trends
             print("Trend is upto date.")
             pass
     else:
-        # run the trends
         trends_extraction()
 
 def article_ext_source():
-    # # opening the firefox application
-    print("opening the firefox application")
-    # now loading the data from the trends 
-    print("now loading the data from the trends...")
     with open("data.json", "r") as f:
         data = json.load(f)
-    # print("data loaded")
-    # keyword : index
-    # value : details list
-    # details   0 - title
-    #           1 - link 
-    #           2 - list of articles link
     articles = {}
     counter = 0
-    # for key in data:
-    #     if data[key][0] in discarded_trends : 
-    #         pass
-    #     else:
-    #         final_key = key
-    #         break
-    # discarded_trends.append(data[final_key][0])
     selecting_topic()
     gui.PAUSE = 0.5
     print(data[final_key][0])
@@ -197,15 +171,11 @@ def article_ext_source():
             webbrowser.BackgroundBrowser("C://Program Files//Mozilla Firefox//firefox.exe"))
         webbrowser.get('firefox').open(url)
         time.sleep(3)
-        # clicking point (x=439, y=127)
         gui.click(x=800, y=500)
         gui.hotkey('ctrl', 'a')
-        # time.sleep(1)
         gui.hotkey('ctrl', 'c')
-        # time.sleep(1)
         clipboard_text = clip.paste()
         article = str(clipboard_text)
-        # print(article)
         articles[counter] = article
         print("Dumped article no [",counter,"]")
         counter += 1
@@ -213,10 +183,9 @@ def article_ext_source():
     with open("articles.json", "w") as f:
         json.dump(articles, f)
     print("Succesfully dumped  all the  articles. \n:)")
-    # one mare feature is to be add thata the open tabs will automatically get deleted
     # =============================================filtration process========================================
+    gui.PAUSE = 0.25
     for i in range(counter):
-        # time.sleep(1)
         gui.click(x=800, y=500)
         gui.hotkey('ctrl', 'w')
 
@@ -224,7 +193,6 @@ def article_filtration():
     print("now loading the articles from the trends...")
     with open("articles.json", "r") as f:
         articles = json.load(f)
-    print("data loaded")
     filtered_articles = []
     counter = 0 
     count = 0
@@ -244,7 +212,6 @@ def article_filtration():
     final_article = list(set(filtered_articles))
     print(count," articles filitered.")
     print(len(final_article)," articles filitered.")
-    # pprint.pprint(filtered_articles)
     final_articles = {}
     i = 0 
     for article in final_article :
@@ -260,13 +227,12 @@ def script_creation():
     with open("filtered_articles.json", "r") as f:
         articles = json.load(f)
     print("data loaded")
-    response_list = []
     if len(articles) == 0 :
         print("Zero filtered articles found.\nAdding this to completed project and moving to other next topic.")
         add_to_completed_project()
         cleaning()
         do()
-
+    retry_index = 1
     try:
         for article in articles: 
             article_content = articles[article]
@@ -275,21 +241,25 @@ def script_creation():
             response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                    {"role": "system", "content": "You are a journalist and content creator"},
+                    {"role": "system", "content": "Youtube content creator"},
                     {"role": "assistant", "content": details },
                     {"role": "user", "content": article_body},
                 ]
             )
-
             respoense = response["choices"][0]["message"]["content"]
             print("request send sucessfully")
-            print(respoense)
+
             if "title" and "feelings" and "image_instruction" and "script" in respoense :
                 break
             else :
-                print("-------------------------didn't got quality content---------------------------")
-                print("-------------------------------retrying---------------------------------------")
+                if retry_index == 5 :
+                    print("Failed connection with open ai. Check the internet connection.")
+                    exit()
+
+                print(f"AI response not adiquate.\nRetring connecting with the OpenAI[{retry_index}]")
+                retry_index += 1
                 script_creation()
+            print(respoense)
         response_json = eval(respoense)
     except:
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!error in open ai request!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -310,7 +280,6 @@ def images_extraction(num_of_images = 30):
                         adult_filter_off=True, 
                         force_replace=False, 
                         timeout=60, verbose=True)
-
     abs_image_folder_locarion = f'image\\{response["tags"]}'
     current_dir = os.getcwd()
     image_folder = os.path.join(current_dir, abs_image_folder_locarion)
@@ -318,7 +287,6 @@ def images_extraction(num_of_images = 30):
     print(image_files)
     i = 1
     no_of_filtered_images = 0
-    image_details = {}
     for image_path in image_files:
         img = cv2.imread(image_path)
         try :
@@ -405,23 +373,14 @@ def images_extraction(num_of_images = 30):
 def video_generation(): 
     global video_file_name;
 
-    # -----------------subtitle----------------------
     global file_name
-
+    # -----------------subtitle----------------------
     with open("sample_subtitle.json", "r") as f:
         response = json.load(f)
     current_dir = os.getcwd()
     abs_image_folder_locarion = r'image_downloads'
     image_folder = os.path.join(current_dir, abs_image_folder_locarion)
-
-    # abs_image_folder_locarion = f'image\\{response["tags"]}'
-
-    current_dir = os.getcwd()
-    image_folder = os.path.join(current_dir, abs_image_folder_locarion)
-    video_file = f'test{response["title"]}'
-
     image_files = [os.path.join(image_folder, f) for f in os.listdir(image_folder) ]
-    # if f.endswith('.jpg') or f.endswith('.JPG') or f.endswith('.png') or f.endswith('.PNG')or f.endswith('.jpeg') or f.endswith('.JPEG')
     no_of_images = len(image_files)
 
     # 120 word
@@ -453,21 +412,8 @@ def video_generation():
                 words_utilised_index += 1
         globals()[f"cut_text{i}"] = " ".join(cut)
     
-    # for i in range(no_of_cuts) :
-    #     cut = globals()[f"cut{i}"]
-    #     print(len(cut), "\t", cut)
-
-    # value = (len(words_list) / 200) * 60
-    # if value > 60 :
-    #     video_duration = 60
-    # elif value < 30 :
-    #     video_duration = 30
-    # else:
-    #     video_duration = value
     video_duration = 60
     clip_duration = video_duration / no_of_images
-
-    clips_list = []
     cuts_counter = 0
     pixels_left_on_sides_padding = 20
     print(len(image_files))
@@ -482,7 +428,7 @@ def video_generation():
         new_width = int(new_height * 9 / 16)
         clip = clip.set_position(lambda t:( t * (width-new_width-pixels_left_on_sides_padding)/clip_duration, 'center') )
         clip = CompositeVideoClip([clip], size=clip.size)
-        if width > height: 
+        if width > height:
             new_height = height
             new_width = int(new_height * 9 / 16)
             print(new_width, width, clip.size[0],clip.size[1],new_height,height )
@@ -492,67 +438,13 @@ def video_generation():
             new_height = height
             new_width = int(new_height * 9 / 16)
 
-        # ========================textclip background color selection=================================
-        try:
-            img = ImageClip(current_image_file_path)
-            most_common_color = img.get_average_color()
-            opposite_color = tuple(255 - c for c in most_common_color)
-        except:
-            opposite_color = "grey"
-        print(opposite_color)
-                # ==================
-        x1, y1 = 0, 500
-        x2, y2 = 450, 760
+    #     x1, y1 = 0, 500
+    #     x2, y2 = 450, 760
 
-        # from SecretColors import palette
-        # p = palette.Palette("material" ,color_mode = 'rgb')
-        # colors = p.random(no_of_colors = 10)
-        # #  gradient=False
-        # def convert_rgb_to_255(rgb):
-        #     return tuple(int(x * 255) for x in rgb)
-
-        # rgb_values = (0.5, 0.3, 0.8)
-        # rgb_255_0 = convert_rgb_to_255(colors[0])
-        # rgb_list = []
-        # for i in range(10):
-        #     rgb_255 = convert_rgb_to_255(colors[i])
-        #     rgb_list.append(rgb_255)
-
-        # # rgb_255_1 = convert_rgb_to_255(colors[1])
-        # def calculate_brightness(rgb):
-        #     r, g, b = rgb
-        #     return (r * 299 + g * 587 + b * 114) / 1000
-
-        # def select_light_and_dark_colors(colors):
-        #     lightest_color = None
-        #     darkest_color = None
-
-        #     for rgb in colors:
-        #         brightness = calculate_brightness(rgb)
-
-        #         if lightest_color is None or brightness > calculate_brightness(lightest_color):
-        #             lightest_color = rgb
-
-        #         if darkest_color is None or brightness < calculate_brightness(darkest_color):
-        #             darkest_color = rgb
-
-        #     return lightest_color, darkest_color
-        # # colors = rgb_list
-        # # print(rgb_255_0,rgb_255_1)
-        # lightest_color, darkest_color = select_light_and_dark_colors(rgb_list)
-
-
-        # Create a black clip with the specified size
-        rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(0, 0, 0))
-        # rect_clip = ColorClip(size=(x2-x1, y2-y1), color=lightest_color)
-        # rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(0,0,0))
-
-        # Set the opacity of the clip to 0.5 (50% transparent)
-        rect_clip = rect_clip.set_opacity(0.05)
-
-        # Create a CompositeVideoClip with the rectangle clip positioned at (x1, y1)
-        clip = CompositeVideoClip([clip, rect_clip.set_pos((x1, y1))])
-    # ----------------------------------adding subtitle-------------------------------------
+    #     rect_clip = ColorClip(size=(x2-x1, y2-y1), color=(0, 0, 0))
+    #     rect_clip = rect_clip.set_opacity(0.05)
+    #     clip = CompositeVideoClip([clip, rect_clip.set_pos((x1, y1))])
+    # # ----------------------------------adding subtitle-------------------------------------
         for j in range(2):
             if j == 0:
                 # cuti0
@@ -561,12 +453,9 @@ def video_generation():
                 # cuti1
                 globals()[f"cut{i}{j}"] = clip.subclip(clip_duration / 2 , clip_duration)
             main_cut = globals()[f"cut{i}{j}"]
-            print(current_dir)
             filename = f"cut_video_processed{i}{j}.mp4"
             main_cut.write_videofile(filename  , fps =30, codec="libx264")
-            print("done")
 
-            # ==================
             text_clip = VideoFileClip(filename=filename )
             text = globals()[f"cut_text{cuts_counter}"]
             text_list = text.split(" ")
@@ -578,19 +467,15 @@ def video_generation():
             suttitle_line_2_list.append("...")
             subtitle_text_list = suttitle_line_1_list + suttitle_line_2_list
 
-            #//////////////// older logic with 2 words////////////////////
-            # even = 0
-            # for words in text_list:
-            #         subtitle_text_list.append(words)
-            #         if even%2 == 0:
-            #             subtitle_text_list.append("\n")
-            #         even += 1
             text = " ".join(subtitle_text_list)
-            try:
-                text_clip = TextClip(text, fontsize=23, color="white" ,font = 'Arial-Bold', stroke_color = "white", stroke_width = 1 )
-            except:
-                text_clip = TextClip(text, fontsize=23, color="white" ,font = 'Arial-Bold', stroke_color = "white", stroke_width = 1)
-            
+            # try:
+            #     text_clip = TextClip(text, fontsize=26, color="white" ,font = 'Arial-Bold', stroke_color = "black", stroke_width = 2 )
+            # except:
+            #     text_clip = TextClip(text, fontsize=26, color="white" ,font = 'Arial-Bold', stroke_color = "black", stroke_width = 2)
+            # fontsize=None,interline=None,tempfilename=None, temptxt=None,
+            size = (300 ,150)
+            text_clip = TextClip(txt=text, size= size, color='White', bg_color='transparent',  font='Courier', stroke_color="Black", stroke_width=1, method='caption', kerning=1, align='West',   transparent=True, remove_temp=True, print_cmd=False).set_duration(clip_duration/2)
+
             text_clip = text_clip.set_position((0.11,0.7), relative=True).set_duration(clip_duration/2)
             globals()[f"cut_final{i}{j}"] = CompositeVideoClip([main_cut, text_clip]) 
             cuts_counter += 1
@@ -659,8 +544,8 @@ def video_generation():
 def copying_imaportant_files():
     current_dir = os.getcwd()
     # G:\My Drive\new folder
-    dest_dir = 'G:\\My Drive\\new folder' # Replace with the destination directory path
-
+    library_location = r'\\library'
+    dest_dir = current_dir + library_location
     for filename in os.listdir(current_dir):
         if filename.endswith(video_file_name):
             shutil.move(os.path.join(current_dir, filename), dest_dir)
@@ -765,95 +650,157 @@ def cleaning():
     current_dir = os.getcwd()
     abs_image_folder_locarion = r'image_downloads'
     image_folder = os.path.join(current_dir, abs_image_folder_locarion)
-
     for filename in os.listdir(image_folder):
         os.remove(os.path.join(image_folder, filename)) 
-    # current_dir = os.getcwd()
-    # with open("sample_subtitle.json", "r") as f:
-    #     response = json.load(f)
-    # abs_image_folder_locarion = f'image\\{response["image_instruction"]}'
-    # image_folder = os.path.join(current_dir, abs_image_folder_locarion)
-    # for filename in os.listdir(current_dir):
-        # if filename.endswith('.mp4'):
-        #     os.remove(os.path.join(current_dir, filename))
-        # elif filename.endswith('.json'):
-    #     #     os.remove(os.path.join(current_dir, filename))
-    # for filename_jpg in os.listdir(image_folder):
-    #     if filename_jpg.endswith('.jpg'):
-    #         os.remove(os.path.join(image_folder, filename_jpg))
     print("Cleaning process completed.")
 
-def do2():
-    check_trends_extraction()
-    article_ext_source()
-    article_filtration()
-    script_creation()
-    images_extraction()
-    video_generation()
-    copying_imaportant_files()
-    upload_on_youtube()
-    cleaning()
-    do()
+def program_execution():
+    try :
+        check_trends_extraction()
+    except :
+        #message - here we have to limit time and find a way to handle this error
+        error = "problem with extracting the trending topics"
+        print(error)
 
-def do():
-    check_trends_extraction()
-    article_ext_source()
-    article_filtration()
-    script_creation()
-    images_extraction()
-    video_generation()
-    copying_imaportant_files()
-    upload_on_youtube()
-    cleaning()
-    do2()
+    try :    
+        article_ext_source() # stores all the articles - no major issues
+        article_filtration() # no major issues
+    except :
+        #message - just prompt it
+        error = "error occured while web crawling and data filtration"
+        print(error)
+
+    try :
+        script_creation()
+    except :
+        #message - prompt error with open ai
+        error = "error occured while crerating script"
+        print(error)
     
-def run():
-    def processing(stop_event):
-        while not stop_event.is_set():
-            for c in "\ /":
-                sys.stdout.write('\r' + "Processing " + c)
-                sys.stdout.flush()
-                time.sleep(0.1)
+    try :
+        images_extraction()
+    except :
+        #message - prompt error
+        error = "error occured while downloading the images"
+        print(error)
+    
+    try :
+        video_generation()
+    except :
+        #message - prompt error
+        error = "problem while video generation"
+        print(error)
 
-    def do_calculation():
-        # here is the program structure
-        print("Started")
-        try:
-            do()
-        except:
-            print("!!!!!!!!!!!!!!!!!!Something went wrong!!!!!!!!!!!!!!!!!!!!!!!!!")
+    try :
+        copying_imaportant_files()
+        upload_on_youtube()
+        cleaning()
+    except :
+        #message - prompt error
+        error = "error occured while copying, cleaning or uploading the file"
+        print(error)
+
+def telegrambot():
+    # Create an Updater object
+    updater = Updater(token="6098266248:AAGekqHABpFijxlxyU4Tv7RYP_WSRtQSqNo", use_context=True)
+    
+    # Get the dispatcher to register handlers
+    dispatcher = updater.dispatcher
+    def send_message(update, context, message):
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+    def main(update, context):
+        try :
+            check_trends_extraction()
+            print("going to press exit")
+        except :
+            #message - here we have to limit time and find a way to handle this error
+            error = "problem with extracting the trending topics"
+            send_message(update, context, error)
+            print(error)
+
+            # break
+            # while True :
+            #     telegrambot()
+        try :    
+            article_ext_source() # stores all the articles - no major issues
+            article_filtration() # no major issues
+        except :
+            #message - just prompt it
+            error = "error occured while web crawling and data filtration"
+            send_message(update, context, error)
+            print(error)
+
+        try :
+            script_creation()
+        except :
+            #message - prompt error with open ai
+            error = "error occured while crerating script"
+            send_message(update, context, error)
+            print(error)
+        
+        try :
+            images_extraction()
+        except :
+            #message - prompt error
+            error = "error occured while downloading the images"
+            send_message(update, context, error)
+            print(error)
+        
+        try :
+            video_generation()
+        except :
+            #message - prompt error
+            error = "problem while video generation"
+            send_message(update, context, error)
+            print(error)
+
+        try :
+            copying_imaportant_files()
+            upload_on_youtube()
             cleaning()
-            do()
-            Exception_counter += 1
-            if Exception_counter > 5 :
-                exit()
+            main(update, context)
+        except :
+            #message - prompt error
+            error = "error occured while copying, cleaning or uploading the file"
+            send_message(update, context, error)
+            print(error)
 
 
-    stop_event = threading.Event()
-    processing_thread = threading.Thread(target=processing, args=(stop_event,))
-    processing_thread.start()
+    # Define command handlers
+    def start(update, context):
+        user_id = update.effective_user.id
+        print(user_id)
+        if user_id in ALLOWED_USERS :
+            context.bot.send_message(chat_id=update.effective_chat.id, text="yep  started program execution!")
+            main(update, context)
+            
+        # else :
+        #     context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, you are not authorized to use this bot.")
+        #     program_execution()
+    def stop_bot(update, context):
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Stopping the bot...")
+        os.kill(os.getpid(), 9)
 
-    do_calculation()
-    stop_event.set()
-    print("\nDone!")
+    def alive(update, context):
+        alive_msg = "yes i amm alive"
+        print(alive_msg)
+        send_message(update, context, alive_msg)
 
-def testt():
-    import tkinter as tk
-    from tkinter import messagebox
-
-    def show_error():
-        messagebox.showerror("Error", "An error occurred!")
-
-    # Create the main window
-    window = tk.Tk()
-
-    # Create a button to trigger the error dialog
-    button = tk.Button(window, text="Show Error", command=show_error)
-    button.pack()
-
-    # Start the main event loop
-    window.mainloop()
+    # Register command handlers
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("alive", alive))
+    dispatcher.add_handler(CommandHandler("stopbot", stop_bot))
 
 
+    # Start the bot
+    updater.start_polling()
 
-do()
+    # Run the bot until you press Ctrl-C
+    updater.idle()
+
+# if __name__ == '__main__':
+while True :
+    telegrambot()
+
+    

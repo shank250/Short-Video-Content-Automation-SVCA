@@ -79,5 +79,3 @@ def images_extraction(num_of_images = 20):
         for filename in os.listdir(image_folder):
             os.remove(os.path.join(image_folder, filename))
         images_extraction(30)
-images_extraction()
-
